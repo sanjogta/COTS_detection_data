@@ -1,0 +1,126 @@
+def view_random_image(video_path):
+    """
+    created on: 24th December, 2021 Friday
+    argument: directory path of a specific video
+    plots a random image from specified video
+    """
+    # select a random image
+    random_img = random.choice(os.listdir(video_path))
+    # get the path of that image
+    image_path = os.path.join(video_path, random_img)
+    # read the image
+    image = img.imread(image_path)
+    # plot the image
+    plt.imshow(image)
+    
+    print(image.shape, image_path)
+	
+#*******************************************************************************************************************************#
+
+def get_image_info(df):
+    """
+    created on: 27th December, 2021 Monday
+    argument: video specific dataframe (eg. video0_df, video1_df, video2_df)
+    This method returns a list of image paths & bounding boxes for COTS in the image.
+    """
+    path_list = []
+    box = []
+    boxes = dict()
+    a = 1
+    for i in range(len(df)):
+        # print("Index: ",i)
+        s = df['annotations'][i]
+        # print(s)
+        if s != "[]":
+            count = s.count("{")
+
+            if count>1:      # if there are more than one crown of thorns star fish in the image
+                s = s.strip("[]")
+#                 print(s)
+                s = s.strip("{}")
+#                 print(s)
+                s = s.split("},")
+#                 print(s, len(s))
+                for j in range(len(s)):        
+                    xmin = int(s[j].split(",")[0].strip("{\'x\': "))
+                    ymin = int(s[j].split(",")[1].strip("\'y\': "))
+                    width = int(s[j].split(",")[2].strip("\'width\': "))
+                    height = int(s[j].split(",")[3].strip("\'height\': "))
+                    xmax = xmin + width
+                    ymax = ymin + height
+#                     a = (xmin+ymin+xmax+ymax)
+                    box.append([xmin, ymin, xmax, ymax])
+#                     print("Index: ",i)
+#                     print(xmin, ymin, xmax, ymax, width, height)
+            else:
+                s = s.strip("[{}]")    
+                xmin = int(s.split(",")[0].strip("\'x\': "))
+                ymin = int(s.split(",")[1].strip("\'y\': "))
+                width = int(s.split(",")[2].strip("\'width\': "))
+                height = int(s.split(",")[3].strip("\'height\': "))
+                xmax = xmin + width
+                ymax = ymin + height
+                box.append([xmin, ymin, xmax, ymax])
+#                 print(xmin, ymin, xmax, ymax, width, height)
+        boxes[i]=box
+        box = []
+        image_path = os.path.join(train_dir,"v"+str(df.iloc[i]['video_id'])+"/"+str(df.iloc[i]['video_frame'])+".jpg")
+        path_list.append(image_path)
+        image_path = ""
+    return path_list, boxes
+	
+#*******************************************************************************************************************************#
+
+def display_bbox(img_idx, boxes, image_paths_list):
+  img = Image.open(image_paths_list[img_idx])
+  # print(len(boxes[img_idx]))
+  img1 = ImageDraw.Draw(img)
+  for i in range(len(boxes[img_idx])):
+    left, right, top, bottom = boxes[img_idx][i][0], boxes[img_idx][i][2], boxes[img_idx][i][1], boxes[img_idx][i][3]
+    img1.line([(left, top), (left, bottom), (right, bottom), (right, top),
+              (left, top)], width=5, fill="red")
+  # uncomment following 3 lines to save the annotated image
+  # video_folder = image_paths_list[img_idx].split("/")[3]
+  # img_name = image_paths_list[img_idx].split("/")[4].split(".")[0]
+  # img = img.save(f"/content/annotated_images/{video_folder}/{img_name}.jpg", format="jpeg") # save the annotated image
+  return img
+  
+#*******************************************************************************************************************************#
+  
+def normalize_bboxes(bboxes):
+  """ This method normalizes the bounding box co-ordinates & returns the same """
+
+  norm_bboxes = {key:None for key in bboxes.keys()}  # create an empty dictionary with only keys
+
+  for i in range(len(bboxes)):
+    if bboxes[i]== []:                               # if there are no COTS in an image, its bb coodinates will be empty
+      norm_bboxes[i]= []
+    else:                                            # if there are multiple COTS in an image, use tf.keras.utils.normalize() to normalize the co-ordinates
+      norm_bboxes[i] = [] 
+      for j in bboxes[i]:  
+        norm_bboxes[i].append(tf.keras.utils.normalize(j).squeeze())
+
+  return norm_bboxes
+  
+#*******************************************************************************************************************************# 
+ 
+def random_flip_images(image, boxes):
+  """ This method flips an image and corresponding bounding box """
+  # if tf.random.uniform(())>0.5:
+  new_image = tf.image.flip_left_right(image)
+  new_box = tf.stack(boxes, axis=1)
+  return new_image, new_box
+  
+#*******************************************************************************************************************************#
+
+def visualize(original, augmented):
+  fig = plt.figure()
+  plt.subplot(1,2,1)
+  plt.title('Original image')
+  plt.imshow(original)
+
+  plt.subplot(1,2,2)
+  plt.title('Augmented image')
+  plt.imshow(augmented)
+  
+#*******************************************************************************************************************************#
